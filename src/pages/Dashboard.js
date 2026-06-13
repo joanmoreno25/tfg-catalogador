@@ -81,15 +81,25 @@ function Dashboard() {
     }
   };
 
-  const saveToFirestore = async (imageName, detectedLabels, detectedText) => {
+  const translateLabel = async (text, targetLang) => {
+    if (targetLang === 'en') return text; 
+    
+    try {
+      const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${targetLang}`);
+      const data = await response.json();
+      return data.responseData.translatedText || text;
+    } catch (e) {
+      console.error("Error al traducir:", e);
+      return text;
+    }
+  };
+
+  const saveToFirestore = async (imageName, translatedLabels, detectedText) => {
     try {
       const analysisData = {
         userId: currentUser.uid,
         nombreImagen: imageName,
-        etiquetas: detectedLabels.map(l => ({
-          nombre: l.Name,
-          confianza: l.Confidence
-        })),
+        etiquetas: translatedLabels,
         textoDetectado: detectedText.map(t => t.DetectedText),
         fechaCreacion: serverTimestamp()
       };
@@ -119,7 +129,19 @@ function Dashboard() {
 
       const textLines = textResponse.TextDetections.filter(item => item.Type === 'LINE');
 
-      await saveToFirestore(imageName, labelsResponse.Labels, textLines);
+      const targetLang = localStorage.getItem('appLanguage') || 'es';
+
+      const translatedLabels = await Promise.all(
+        labelsResponse.Labels.map(async (label) => {
+          const translatedName = await translateLabel(label.Name, targetLang);
+          return {
+            nombre: translatedName,
+            confianza: label.Confidence
+          };
+        })
+      );
+
+      await saveToFirestore(imageName, translatedLabels, textLines);
     } catch (error) {
       console.error("ERROR DETALLADO AWS:", error);
     }
@@ -188,7 +210,7 @@ function Dashboard() {
                   <p className="text-xs text-gray-500 truncate">{currentUser?.email}</p>
                 </div>
                 <button 
-                  onClick={() => { setDropdownOpen(false); }} 
+                  onClick={() => { setDropdownOpen(false); navigate('/profile'); }} 
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Editar Perfil
@@ -331,7 +353,7 @@ function Dashboard() {
                     {item.etiquetas?.slice(0, 5).map((label, i) => (
                       <div key={i} className="flex flex-col gap-1.5">
                         <div className="flex justify-between items-center text-[13px] font-bold text-[#0F172A]">
-                          <span>{label.nombre}</span>
+                          <span className="capitalize">{label.nombre}</span>
                           <span className="text-gray-500">{label.confianza.toFixed(1)}%</span>
                         </div>
                         <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">

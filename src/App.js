@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import Landing from './pages/Landing';
 import ForgotPassword from './pages/ForgotPassword';
 import Terms from './pages/Terms';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/profile" element={<Profile />} />
 
         <Route 
           path="/dashboard" 
