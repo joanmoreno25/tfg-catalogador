@@ -8,6 +8,7 @@ import Landing from './pages/Landing';
 import ForgotPassword from './pages/ForgotPassword';
 import Terms from './pages/Terms';
 import Profile from './pages/Profile';
+import Analytics from './pages/Analytics'; 
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
 
         <Route 
           path="/dashboard" 

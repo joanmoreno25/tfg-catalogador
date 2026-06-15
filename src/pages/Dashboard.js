@@ -11,6 +11,8 @@ import { db, auth } from '../firebase-config';
 import { signOut } from "firebase/auth"; 
 import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, where, limit, startAfter, getCountFromServer } from "firebase/firestore";
 import { useAuth } from '../context/AuthContext';
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 
 import logo from '../assets/logo.svg';
 
@@ -340,6 +342,30 @@ function Dashboard() {
     XLSX.writeFile(workbook, "advision_export.xlsx");
   };
 
+  const exportToPDF = async (item, elementId) => {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    try {
+      const canvas = await html2canvas(element, { 
+        scale: 2, 
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`AdVision_Report_${item.nombreImagen}.pdf`);
+    } catch (error) {
+      console.error("Error generando PDF:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#EEF2F6] font-sans pb-20 relative">
       
@@ -365,6 +391,12 @@ function Dashboard() {
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   {t('dashboard.edit_profile')}
+                </button>
+                <button 
+                  onClick={() => { setDropdownOpen(false); navigate('/analytics'); }} 
+                  className="w-full text-left px-4 py-2 text-sm text-[#3B82F6] hover:bg-gray-50 transition-colors font-bold"
+                >
+                  {t('dashboard.go_to_analytics')}
                 </button>
                 <button 
                   onClick={handleLogout} 
@@ -585,8 +617,9 @@ function Dashboard() {
           {filteredHistory.map((item, index) => (
             <article 
               key={item.id} 
+              id={`report-card-${item.id}`}
               ref={filteredHistory.length === index + 1 ? lastImageElementRef : null}
-              className="bg-white rounded-[16px] shadow-sm overflow-hidden flex flex-col border border-gray-100 transition-transform hover:-translate-y-2 hover:shadow-xl"
+              className="bg-white rounded-[16px] shadow-sm overflow-hidden flex flex-col border border-gray-100 transition-transform hover:-translate-y-2 hover:shadow-xl relative"
             >
               
               <div className="w-full h-[280px] bg-gray-100 overflow-hidden relative">
@@ -595,6 +628,7 @@ function Dashboard() {
                   alt={item.nombreImagen}
                   className="w-full h-full object-cover"
                   loading="lazy"
+                  crossOrigin="anonymous"
                 />
               </div>
               
@@ -644,6 +678,16 @@ function Dashboard() {
                     </div>
                   </div>
                 )}
+
+                {/* Botón de Generación de PDF */}
+                <button 
+                  onClick={() => exportToPDF(item, `report-card-${item.id}`)}
+                  className="mt-6 w-full bg-slate-50 text-[#0F172A] border border-slate-200 text-[13px] font-bold py-2.5 rounded-[8px] hover:bg-slate-100 hover:border-slate-300 transition-colors flex items-center justify-center gap-2"
+                  data-html2canvas-ignore="true"
+                >
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                  {t('dashboard.export_pdf')}
+                </button>
               </div>
             </article>
           ))}

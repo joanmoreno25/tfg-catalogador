@@ -31,7 +31,20 @@
     "filter_conf_90": "90% o meno",
     "filters": "Filtri",
     "active_filters": "Filtri attivi:",
-    "clear_filters": "Cancella filtri"
+    "clear_filters": "Cancella filtri",
+    "analytics_title": "Pannello Statistiche",
+    "total_assets": "Totale Immagini",
+    "avg_confidence": "Affidabilità Media",
+    "total_texts": "Testi Estratti",
+    "top_tags_chart": "Top 10 Etichette Più Rilevate",
+    "back_to_dashboard": "Torna alla Dashboard",
+    "go_to_analytics": "Statistiche",
+    "images_over_time": "Immagini Analizzate nel Tempo",
+    "confidence_distribution": "Distribuzione dell'Affidabilità",
+    "high_conf": "Alta (>90%)",
+    "med_conf": "Media (80-90%)",
+    "low_conf": "Bassa (<80%)",
+    "export_pdf": "Scarica Report PDF"
   },
   "profile": {
     "back_dashboard": "Torna alla Dashboard",

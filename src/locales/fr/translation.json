@@ -31,7 +31,20 @@
     "filter_conf_90": "90% ou moins",
     "filters": "Filtres",
     "active_filters": "Filtres actifs:",
-    "clear_filters": "Effacer les filtres"
+    "clear_filters": "Effacer les filtres",
+    "analytics_title": "Tableau de Bord Analytique",
+    "total_assets": "Total des Images",
+    "avg_confidence": "Confiance Moyenne",
+    "total_texts": "Textes Extraits",
+    "top_tags_chart": "Top 10 des Étiquettes",
+    "back_to_dashboard": "Retour au Tableau de Bord",
+    "go_to_analytics": "Statistiques",
+    "images_over_time": "Images Analysées Dans le Temps",
+    "confidence_distribution": "Distribution de la Confiance",
+    "high_conf": "Élevée (>90%)",
+    "med_conf": "Moyenne (80-90%)",
+    "low_conf": "Faible (<80%)",
+    "export_pdf": "Télécharger le Rapport PDF"
 
   },
   "profile": {
