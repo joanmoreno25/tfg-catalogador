@@ -5,6 +5,7 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, delete
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase-config';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 import { s3Client, BUCKET_NAME } from '../aws-config';
 import { PutObjectCommand } from "@aws-sdk/client-s3";
@@ -12,6 +13,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 const Profile = () => {
   const { t, i18n } = useTranslation();
   const { currentUser } = useAuth();
+  const { isDarkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
@@ -39,7 +41,6 @@ const Profile = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // La fecha se formatea dinámicamente usando el locale activo de i18n
   const todayDate = new Date().toLocaleDateString(i18n.language, { 
     weekday: 'long', 
     year: 'numeric', 
@@ -81,7 +82,6 @@ const Profile = () => {
 
     try {
       localStorage.setItem('appLanguage', language);
-      // ¡Aquí está la instrucción clave para que actualice TODA la app al momento!
       i18n.changeLanguage(language); 
 
       let newPhotoUrl = currentUser.photoURL;
@@ -173,12 +173,12 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-[#EEF2F6] relative p-4 sm:p-8 font-sans overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center bg-[#EEF2F6] dark:bg-[#0B1120] relative p-4 sm:p-8 font-sans overflow-hidden transition-colors duration-300">
       
       <div className="w-full max-w-[1100px] flex justify-start mb-6 z-10 relative mt-4">
         <button 
           onClick={() => navigate('/dashboard')} 
-          className="text-[#475569] text-[16px] font-bold px-5 py-2.5 rounded-[10px] bg-white hover:bg-slate-100 shadow-sm transition-all flex items-center gap-2 border border-slate-200"
+          className="text-[#475569] dark:text-slate-200 text-[16px] font-bold px-5 py-2.5 rounded-[10px] bg-white dark:bg-[#1E293B] hover:bg-slate-100 dark:hover:bg-slate-800 shadow-sm transition-all flex items-center gap-2 border border-slate-200 dark:border-slate-700"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
@@ -187,35 +187,50 @@ const Profile = () => {
         </button>
       </div>
 
-      <div className="relative z-10 w-full max-w-[1100px] bg-white rounded-[24px] shadow-xl p-8 md:p-14 mb-10 border border-slate-100">
+      <div className="relative z-10 w-full max-w-[1100px] bg-white dark:bg-[#1E293B] rounded-[24px] shadow-xl p-8 md:p-14 mb-10 border border-slate-100 dark:border-slate-700 transition-colors duration-300">
         
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 pb-6 border-b border-[#E2E8F0] gap-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 pb-6 border-b border-[#E2E8F0] dark:border-slate-700 gap-6">
           <div className="flex items-center gap-5">
             <img 
               src={photoPreview} 
               alt="Avatar" 
-              className="w-20 h-20 rounded-full object-cover border-[3px] border-gray-100 shadow-md"
+              className="w-20 h-20 rounded-full object-cover border-[3px] border-gray-100 dark:border-slate-600 shadow-md"
             />
             <div>
-              <h1 className="text-[#0F172A] text-[28px] md:text-[36px] font-extrabold leading-tight">
+              <h1 className="text-[#0F172A] dark:text-white text-[28px] md:text-[36px] font-extrabold leading-tight">
                 {t('profile.welcome')}<span className="text-[#3B82F6]">{currentUser?.displayName || t('profile.user')}</span>!
               </h1>
-              <p className="text-[#64748B] text-[16px] font-medium capitalize mt-1">
+              <p className="text-[#64748B] dark:text-slate-400 text-[16px] font-medium capitalize mt-1">
                 {todayDate}
               </p>
             </div>
           </div>
+
+          <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 px-5 py-2.5 rounded-full border border-slate-200 dark:border-slate-700">
+            {isDarkMode ? (
+              <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            ) : (
+              <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            )}
+            <button 
+              type="button"
+              onClick={toggleDarkMode} 
+              className={`w-12 h-6 rounded-full transition-colors relative flex items-center shadow-inner ${isDarkMode ? 'bg-[#3B82F6]' : 'bg-slate-300 dark:bg-slate-600'}`}
+            >
+              <span className={`w-4 h-4 bg-white rounded-full absolute shadow-sm transition-transform duration-300 ease-in-out ${isDarkMode ? 'translate-x-7' : 'translate-x-1'}`} />
+            </button>
+          </div>
         </div>
 
         {errorMsg && (
-          <div className="mb-8 p-4 bg-red-50 text-red-600 border border-red-200 rounded-[10px] text-[15px] font-medium flex items-center gap-3">
+          <div className="mb-8 p-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-[10px] text-[15px] font-medium flex items-center gap-3">
             <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
             {errorMsg}
           </div>
         )}
 
         {successMsg && (
-          <div className="mb-8 p-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-[10px] text-[15px] font-medium flex items-center gap-3">
+          <div className="mb-8 p-4 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-[10px] text-[15px] font-medium flex items-center gap-3">
             <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
             {successMsg}
           </div>
@@ -223,8 +238,8 @@ const Profile = () => {
 
         <div className="flex items-center gap-6 mb-10">
           <input type="file" ref={fileInputRef} onChange={handlePhotoChange} className="hidden" accept="image/*" />
-          <div className="flex flex-col gap-2 bg-slate-50 px-5 py-3 rounded-[12px] border border-slate-100">
-            <button onClick={() => fileInputRef.current.click()} className="text-[#3B82F6] font-semibold text-[15px] text-left hover:text-[#2563EB] flex items-center gap-2 transition-colors">
+          <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-800 px-5 py-3 rounded-[12px] border border-slate-100 dark:border-slate-700">
+            <button type="button" onClick={() => fileInputRef.current.click()} className="text-[#3B82F6] font-semibold text-[15px] text-left hover:text-[#2563EB] flex items-center gap-2 transition-colors">
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
               {t('profile.change_photo')}
             </button>
@@ -235,60 +250,60 @@ const Profile = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-14 gap-y-10">
             
             <div className="flex flex-col gap-6">
-              <h2 className="text-[#0F172A] text-[20px] font-extrabold border-b border-gray-100 pb-3 flex items-center gap-2">
+              <h2 className="text-[#0F172A] dark:text-white text-[20px] font-extrabold border-b border-gray-100 dark:border-slate-700 pb-3 flex items-center gap-2">
                 <svg width="22" height="22" fill="none" stroke="#3B82F6" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                 {t('profile.personal_data')}
               </h2>
               
               <div>
-                <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.fullname')}</label>
+                <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.fullname')}</label>
                 <input 
                   type="text" 
                   value={currentUser?.displayName || ''}
                   disabled
-                  className="w-full bg-gray-50 border border-[#E2E8F0] text-gray-500 text-[15px] font-medium rounded-[10px] px-4 py-3.5 cursor-not-allowed"
+                  className="w-full bg-gray-50 dark:bg-slate-800/50 border border-[#E2E8F0] dark:border-slate-700 text-gray-500 dark:text-slate-400 text-[15px] font-medium rounded-[10px] px-4 py-3.5 cursor-not-allowed"
                 />
               </div>
 
               <div>
-                <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.email')}</label>
+                <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.email')}</label>
                 <input 
                   type="email" 
                   value={currentUser?.email || ''}
                   disabled
-                  className="w-full bg-gray-50 border border-[#E2E8F0] text-gray-500 text-[15px] font-medium rounded-[10px] px-4 py-3.5 cursor-not-allowed"
+                  className="w-full bg-gray-50 dark:bg-slate-800/50 border border-[#E2E8F0] dark:border-slate-700 text-gray-500 dark:text-slate-400 text-[15px] font-medium rounded-[10px] px-4 py-3.5 cursor-not-allowed"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.phone')}</label>
+                  <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.phone')}</label>
                   <input 
                     type="tel" 
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder={t('profile.phone_placeholder')}
-                    className="w-full bg-white border border-[#CBD5E1] text-[#0F172A] text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8]"
+                    className="w-full bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-600 text-[#0F172A] dark:text-white text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8] dark:placeholder:text-slate-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.birthdate')}</label>
+                  <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.birthdate')}</label>
                   <input 
                     type="date" 
                     value={birthDate}
                     onChange={(e) => setBirthDate(e.target.value)}
-                    className="w-full bg-white border border-[#CBD5E1] text-[#0F172A] text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all text-[#94A3B8]"
+                    className="w-full bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-600 text-[#0F172A] dark:text-white text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.language')}</label>
+                <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.language')}</label>
                 <div className="relative">
                   <select 
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
-                    className="w-full bg-white border border-[#CBD5E1] text-[#0F172A] text-[15px] font-medium rounded-[10px] px-4 py-3.5 appearance-none focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all cursor-pointer"
+                    className="w-full bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-600 text-[#0F172A] dark:text-white text-[15px] font-medium rounded-[10px] px-4 py-3.5 appearance-none focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all cursor-pointer"
                   >
                     <option value="es">{t('profile.lang_es')}</option>
                     <option value="en">{t('profile.lang_en')}</option>
@@ -296,71 +311,71 @@ const Profile = () => {
                     <option value="it">{t('profile.lang_it')}</option>
                     <option value="de">{t('profile.lang_de')}</option>
                   </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 dark:text-slate-500">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7-7-7-7"></path></svg>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="flex flex-col gap-6">
-              <h2 className="text-[#0F172A] text-[20px] font-extrabold border-b border-gray-100 pb-3 flex items-center gap-2">
+              <h2 className="text-[#0F172A] dark:text-white text-[20px] font-extrabold border-b border-gray-100 dark:border-slate-700 pb-3 flex items-center gap-2">
                 <svg width="22" height="22" fill="none" stroke="#3B82F6" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 {t('profile.location')}
               </h2>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.address')}</label>
+                  <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.address')}</label>
                   <input 
                     type="text" 
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder={t('profile.address_placeholder')}
-                    className="w-full bg-white border border-[#CBD5E1] text-[#0F172A] text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8]"
+                    className="w-full bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-600 text-[#0F172A] dark:text-white text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8] dark:placeholder:text-slate-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.country')}</label>
+                  <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.country')}</label>
                   <input 
                     type="text" 
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
                     placeholder={t('profile.country_placeholder')}
-                    className="w-full bg-white border border-[#CBD5E1] text-[#0F172A] text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8]"
+                    className="w-full bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-600 text-[#0F172A] dark:text-white text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8] dark:placeholder:text-slate-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.postal_code')}</label>
+                  <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.postal_code')}</label>
                   <input 
                     type="text" 
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value)}
                     placeholder={t('profile.postal_code_placeholder')}
-                    className="w-full bg-white border border-[#CBD5E1] text-[#0F172A] text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8]"
+                    className="w-full bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-600 text-[#0F172A] dark:text-white text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8] dark:placeholder:text-slate-500"
                   />
                 </div>
               </div>
 
-              <h2 className="text-[#0F172A] text-[20px] font-extrabold border-b border-gray-100 pb-3 mt-2 flex items-center gap-2">
+              <h2 className="text-[#0F172A] dark:text-white text-[20px] font-extrabold border-b border-gray-100 dark:border-slate-700 pb-3 mt-2 flex items-center gap-2">
                 <svg width="22" height="22" fill="none" stroke="#3B82F6" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 {t('profile.security')}
               </h2>
               
               <div>
-                <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.current_password')}</label>
+                <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.current_password')}</label>
                 <div className="relative">
                   <input 
                     type={showCurrentPassword ? "text" : "password"} 
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="********"
-                    className="w-full bg-white border border-[#CBD5E1] text-[#0F172A] text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8]"
+                    className="w-full bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-600 text-[#0F172A] dark:text-white text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8] dark:placeholder:text-slate-500"
                   />
                   <button 
                     type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#0F172A] transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] dark:text-slate-500 hover:text-[#0F172A] dark:hover:text-white transition-colors"
                   >
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       {showCurrentPassword 
@@ -374,19 +389,19 @@ const Profile = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.new_password')}</label>
+                  <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.new_password')}</label>
                   <div className="relative">
                     <input 
                       type={showNewPassword ? "text" : "password"} 
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="********"
-                      className="w-full bg-white border border-[#CBD5E1] text-[#0F172A] text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8]"
+                      className="w-full bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-600 text-[#0F172A] dark:text-white text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8] dark:placeholder:text-slate-500"
                     />
                     <button 
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#0F172A] transition-colors"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] dark:text-slate-500 hover:text-[#0F172A] dark:hover:text-white transition-colors"
                     >
                       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         {showNewPassword 
@@ -399,19 +414,19 @@ const Profile = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[#475569] text-[14px] font-bold mb-2">{t('profile.confirm_password')}</label>
+                  <label className="block text-[#475569] dark:text-slate-300 text-[14px] font-bold mb-2">{t('profile.confirm_password')}</label>
                   <div className="relative">
                     <input 
                       type={showConfirmPassword ? "text" : "password"} 
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="********"
-                      className="w-full bg-white border border-[#CBD5E1] text-[#0F172A] text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8]"
+                      className="w-full bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-600 text-[#0F172A] dark:text-white text-[15px] font-medium rounded-[10px] px-4 py-3.5 focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6] transition-all placeholder:text-[#94A3B8] dark:placeholder:text-slate-500"
                     />
                     <button 
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#0F172A] transition-colors"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] dark:text-slate-500 hover:text-[#0F172A] dark:hover:text-white transition-colors"
                     >
                       <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         {showConfirmPassword 
@@ -427,11 +442,11 @@ const Profile = () => {
             </div>
           </div>
 
-          <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-8">
+          <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-700 pt-8">
             <button 
               type="button"
               onClick={handleLogout}
-              className="w-full text-slate-600 bg-white font-semibold text-[16px] px-8 py-4 hover:bg-slate-50 hover:text-red-600 rounded-[12px] transition-colors shadow-sm border border-slate-200"
+              className="w-full text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 font-semibold text-[16px] px-8 py-4 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-red-600 dark:hover:text-red-400 rounded-[12px] transition-colors shadow-sm border border-slate-200 dark:border-slate-700"
             >
               {t('profile.logout')}
             </button>
@@ -449,7 +464,7 @@ const Profile = () => {
           <button 
             type="button"
             onClick={() => setShowDeleteModal(true)}
-            className="text-slate-400 hover:text-red-500 font-medium text-[14px] transition-colors underline"
+            className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 font-medium text-[14px] transition-colors underline"
           >
             {t('profile.delete_account')}
           </button>
@@ -459,18 +474,18 @@ const Profile = () => {
 
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all">
-          <div className="bg-white rounded-[24px] shadow-2xl max-w-[480px] w-full p-8 md:p-10 transform scale-100 animate-in fade-in zoom-in duration-200">
-            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-6">
-              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+          <div className="bg-white dark:bg-[#1E293B] rounded-[24px] shadow-2xl max-w-[480px] w-full p-8 md:p-10 transform scale-100 animate-in fade-in zoom-in duration-200 border border-slate-100 dark:border-slate-700">
+            <div className="w-16 h-16 bg-red-50 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6">
+              <svg className="w-8 h-8 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
             </div>
-            <h3 className="text-[#0F172A] text-[24px] font-extrabold mb-3">{t('profile.modal_delete_title')}</h3>
-            <p className="text-[#64748B] text-[15px] mb-8 leading-relaxed font-medium">
-              {t('profile.modal_delete_text_1')}<span className="font-bold text-[#0F172A]">{t('profile.modal_delete_text_2')}</span>{t('profile.modal_delete_text_3')}
+            <h3 className="text-[#0F172A] dark:text-white text-[24px] font-extrabold mb-3">{t('profile.modal_delete_title')}</h3>
+            <p className="text-[#64748B] dark:text-slate-400 text-[15px] mb-8 leading-relaxed font-medium">
+              {t('profile.modal_delete_text_1')}<span className="font-bold text-[#0F172A] dark:text-white">{t('profile.modal_delete_text_2')}</span>{t('profile.modal_delete_text_3')}
             </p>
             <div className="flex flex-col sm:flex-row justify-end gap-3">
               <button 
                 onClick={() => setShowDeleteModal(false)}
-                className="w-full sm:w-auto px-6 py-3.5 text-[#475569] font-bold bg-slate-100 rounded-[10px] hover:bg-slate-200 transition-colors"
+                className="w-full sm:w-auto px-6 py-3.5 text-[#475569] dark:text-slate-200 font-bold bg-slate-100 dark:bg-slate-700 rounded-[10px] hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
               >
                 {t('profile.cancel')}
               </button>

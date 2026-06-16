@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import * as XLSX from 'xlsx';
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 
 import { s3Client, rekognitionClient, BUCKET_NAME } from '../aws-config';
 import { PutObjectCommand } from "@aws-sdk/client-s3";
@@ -11,8 +13,7 @@ import { db, auth } from '../firebase-config';
 import { signOut } from "firebase/auth"; 
 import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, where, limit, startAfter, getCountFromServer } from "firebase/firestore";
 import { useAuth } from '../context/AuthContext';
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
+import { useTheme } from '../context/ThemeContext';
 
 import logo from '../assets/logo.svg';
 
@@ -39,6 +40,7 @@ function Dashboard() {
   const observer = useRef();
 
   const { currentUser } = useAuth();
+  const { isDarkMode } = useTheme();
   const navigate = useNavigate();
 
   const fetchHistory = useCallback(async () => {
@@ -149,7 +151,6 @@ function Dashboard() {
 
   const translateLabel = async (text, targetLang) => {
     if (targetLang === 'en') return text; 
-    
     try {
       const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${targetLang}`);
       const data = await response.json();
@@ -179,13 +180,11 @@ function Dashboard() {
   const analyzeImage = async (imageName, fileData) => {
     try {
       const imageParams = { Image: { Bytes: fileData } };
-
       const labelsCommand = new DetectLabelsCommand({
         ...imageParams,
         MaxLabels: 5,
         MinConfidence: 75,
       });
-
       const textCommand = new DetectTextCommand(imageParams);
 
       const [labelsResponse, textResponse] = await Promise.all([
@@ -194,17 +193,14 @@ function Dashboard() {
       ]);
 
       const textLines = textResponse.TextDetections.filter(item => item.Type === 'LINE');
-
       const targetLangs = ['es', 'fr', 'it', 'de'];
 
       const multilangLabels = await Promise.all(
         labelsResponse.Labels.map(async (label) => {
           const nombresDict = { en: label.Name };
-          
           await Promise.all(targetLangs.map(async (lang) => {
              nombresDict[lang] = await translateLabel(label.Name, lang);
           }));
-
           return {
             nombres: nombresDict,
             confianza: label.Confidence,
@@ -222,7 +218,6 @@ function Dashboard() {
   const uploadToS3 = async () => {
     if (files.length === 0) return alert(t('dashboard.alert_select_file'));
     setUploading(true);
-   
     try {
       const uploadPromises = files.map(async (file) => {
         const safeFileName = file.name.replace(/\s+/g, '_');
@@ -238,14 +233,93 @@ function Dashboard() {
        
         await analyzeImage(safeFileName, fileData);
       });
-
       await Promise.all(uploadPromises);
       setFiles([]); 
-     
     } catch (error) {
       console.error("Fallo general:", error);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const exportToPDF = async (item, elementId) => {
+    const originalElement = document.getElementById(elementId);
+    if (!originalElement) return;
+
+    const clonedElement = originalElement.cloneNode(true);
+    clonedElement.style.width = '800px'; 
+    clonedElement.style.position = 'absolute';
+    clonedElement.style.left = '-9999px'; 
+    clonedElement.style.height = 'auto'; 
+    clonedElement.className = "bg-white p-8 flex flex-col"; 
+    
+    const titleElement = clonedElement.querySelector('h3');
+    if (titleElement) {
+      titleElement.className = "text-[#0F172A] text-[20px] font-bold mb-4"; 
+      titleElement.innerText = item.nombreImagen; 
+    }
+
+    const tagsContainer = clonedElement.querySelectorAll('.flex.flex-col.gap-3')[0];
+    if (tagsContainer && item.etiquetas) {
+      tagsContainer.innerHTML = ''; 
+      item.etiquetas.forEach(label => {
+        const currentLang = i18n.language || 'es';
+        const displayName = label.nombres ? label.nombres[currentLang] : label.nombre;
+        const color = label.confianza > 95 ? '#10b981' : label.confianza > 85 ? '#3B82F6' : '#f59e0b';
+        
+        tagsContainer.innerHTML += `
+          <div class="flex flex-col gap-1.5 mb-2">
+            <div class="flex justify-between items-center text-[14px] font-bold text-[#0F172A]">
+              <span class="capitalize">${displayName}</span>
+              <span class="text-gray-500">${label.confianza.toFixed(1)}%</span>
+            </div>
+            <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+              <div class="h-full rounded-full" style="width: ${label.confianza}%; background-color: ${color}"></div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    const textContainerWrapper = clonedElement.querySelector('.mt-5.pt-4.border-t');
+    if (textContainerWrapper && item.textoDetectado && item.textoDetectado.length > 0) {
+      const textContainer = textContainerWrapper.querySelector('.flex.flex-wrap.gap-2');
+      if (textContainer) {
+        textContainer.innerHTML = ''; 
+        item.textoDetectado.forEach(txt => {
+          textContainer.innerHTML += `<span class="bg-blue-50 text-blue-700 border border-blue-100 text-[13px] px-3 py-1.5 rounded-md font-medium mb-1">"${txt}"</span>`;
+        });
+      }
+    }
+
+    const btn = clonedElement.querySelector('button');
+    if (btn) btn.remove();
+
+    document.body.appendChild(clonedElement);
+
+    try {
+      const canvas = await html2canvas(clonedElement, { 
+        scale: 2, 
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      const finalHeight = pdfHeight > pdf.internal.pageSize.getHeight() ? pdf.internal.pageSize.getHeight() : pdfHeight;
+      const finalWidth = pdfHeight > pdf.internal.pageSize.getHeight() ? (canvas.width * finalHeight) / canvas.height : pdfWidth;
+
+      pdf.addImage(imgData, 'PNG', (pdfWidth - finalWidth) / 2, 0, finalWidth, finalHeight);
+      pdf.save(`AdVision_Report_${item.nombreImagen.replace(/\.[^/.]+$/, "")}.pdf`);
+    } catch (error) {
+      console.error("Error generando PDF:", error);
+    } finally {
+      document.body.removeChild(clonedElement);
     }
   };
 
@@ -342,99 +416,10 @@ function Dashboard() {
     XLSX.writeFile(workbook, "advision_export.xlsx");
   };
 
-  const exportToPDF = async (item, elementId) => {
-    const originalElement = document.getElementById(elementId);
-    if (!originalElement) return;
-
-    // 1. Clonar el elemento para no afectar la interfaz visual del usuario
-    const clonedElement = originalElement.cloneNode(true);
-    
-    // 2. Modificar el clon para expandirlo completamente
-    clonedElement.style.width = '800px'; // Forzar un ancho para lectura cómoda
-    clonedElement.style.position = 'absolute';
-    clonedElement.style.left = '-9999px'; // Ocultarlo de la pantalla
-    clonedElement.style.height = 'auto'; // Permitir que crezca lo necesario
-    clonedElement.className = "bg-white p-8 flex flex-col"; // Quitar redondeos, bordes y overflow hidden
-    
-    // 3. Quitar el truncado del título
-    const titleElement = clonedElement.querySelector('h3');
-    if (titleElement) {
-      titleElement.className = "text-[#0F172A] text-[20px] font-bold mb-4"; 
-      titleElement.innerText = item.nombreImagen; // Asegurar texto completo
-    }
-
-    // 4. Mostrar TODAS las etiquetas
-    const tagsContainer = clonedElement.querySelectorAll('.flex.flex-col.gap-3')[0];
-    if (tagsContainer && item.etiquetas) {
-      tagsContainer.innerHTML = ''; // Limpiar las 5 originales
-      item.etiquetas.forEach(label => {
-        const currentLang = i18n.language || 'es';
-        const displayName = label.nombres ? label.nombres[currentLang] : label.nombre;
-        const color = label.confianza > 95 ? '#10b981' : label.confianza > 85 ? '#3B82F6' : '#f59e0b';
-        
-        tagsContainer.innerHTML += `
-          <div class="flex flex-col gap-1.5 mb-2">
-            <div class="flex justify-between items-center text-[14px] font-bold text-[#0F172A]">
-              <span class="capitalize">${displayName}</span>
-              <span class="text-gray-500">${label.confianza.toFixed(1)}%</span>
-            </div>
-            <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-              <div class="h-full rounded-full" style="width: ${label.confianza}%; background-color: ${color}"></div>
-            </div>
-          </div>
-        `;
-      });
-    }
-
-    // 5. Mostrar TODO el texto detectado
-    const textContainerWrapper = clonedElement.querySelector('.mt-5.pt-4.border-t');
-    if (textContainerWrapper && item.textoDetectado && item.textoDetectado.length > 0) {
-      const textContainer = textContainerWrapper.querySelector('.flex.flex-wrap.gap-2');
-      if (textContainer) {
-        textContainer.innerHTML = ''; // Limpiar los 3 originales
-        item.textoDetectado.forEach(txt => {
-          textContainer.innerHTML += `<span class="bg-blue-50 text-blue-700 border border-blue-100 text-[13px] px-3 py-1.5 rounded-md font-medium mb-1">"${txt}"</span>`;
-        });
-      }
-    }
-
-    // Eliminar el botón de exportar del PDF clonado
-    const btn = clonedElement.querySelector('button');
-    if (btn) btn.remove();
-
-    document.body.appendChild(clonedElement);
-
-    try {
-      const canvas = await html2canvas(clonedElement, { 
-        scale: 2, 
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      // Si la imagen es más larga que un A4, se cortará. Ajustamos para que quepa en una página.
-      const finalHeight = pdfHeight > pdf.internal.pageSize.getHeight() ? pdf.internal.pageSize.getHeight() : pdfHeight;
-      const finalWidth = pdfHeight > pdf.internal.pageSize.getHeight() ? (canvas.width * finalHeight) / canvas.height : pdfWidth;
-
-      pdf.addImage(imgData, 'PNG', (pdfWidth - finalWidth) / 2, 0, finalWidth, finalHeight);
-      pdf.save(`AdVision_Report_${item.nombreImagen.replace(/\.[^/.]+$/, "")}.pdf`);
-    } catch (error) {
-      console.error("Error generando PDF:", error);
-    } finally {
-      document.body.removeChild(clonedElement);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[#EEF2F6] font-sans pb-20 relative">
+    <div className="min-h-screen bg-[#EEF2F6] dark:bg-[#0B1120] transition-colors duration-300 font-sans pb-20 relative">
       
-      <div className="w-full bg-[#0F172A] pt-6 pb-16 relative shadow-lg">
+      <div className="w-full bg-[#0F172A] dark:bg-[#020617] pt-6 pb-16 relative shadow-lg transition-colors duration-300">
         
         <div className="absolute top-6 right-8 z-50">
           <div className="relative">
@@ -442,30 +427,30 @@ function Dashboard() {
               onClick={() => setDropdownOpen(!dropdownOpen)} 
               src={currentUser?.photoURL || "https://ui-avatars.com/api/?name=" + (currentUser?.email || "User") + "&background=64748B&color=fff"} 
               alt="Perfil" 
-              className="w-16 h-16 rounded-full cursor-pointer border-[3px] border-transparent hover:border-[#3B82F6] transition-all object-cover shadow-md"
+              className="w-14 h-14 md:w-16 md:h-16 rounded-full cursor-pointer border-[3px] border-transparent hover:border-[#3B82F6] transition-all object-cover shadow-md"
             />
             
             {dropdownOpen && (
-              <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 overflow-hidden">
-                <div className="px-4 py-2 border-b border-gray-100 mb-1">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{currentUser?.displayName || t('dashboard.user')}</p>
-                  <p className="text-xs text-gray-500 truncate">{currentUser?.email}</p>
+              <div className="absolute right-0 mt-3 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-100 dark:border-slate-700 py-2 overflow-hidden transition-colors duration-300">
+                <div className="px-4 py-2 border-b border-gray-100 dark:border-slate-700 mb-1">
+                  <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">{currentUser?.displayName || t('dashboard.user')}</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 truncate">{currentUser?.email}</p>
                 </div>
                 <button 
-                  onClick={() => { setDropdownOpen(false); navigate('/profile'); }} 
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  {t('dashboard.edit_profile')}
-                </button>
-                <button 
                   onClick={() => { setDropdownOpen(false); navigate('/analytics'); }} 
-                  className="w-full text-left px-4 py-2 text-sm text-[#3B82F6] hover:bg-gray-50 transition-colors font-bold"
+                  className="w-full text-left px-4 py-2 text-sm text-[#3B82F6] hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors font-bold"
                 >
                   {t('dashboard.go_to_analytics')}
                 </button>
                 <button 
+                  onClick={() => { setDropdownOpen(false); navigate('/profile'); }} 
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                  {t('dashboard.edit_profile')}
+                </button>
+                <button 
                   onClick={handleLogout} 
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium"
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-slate-700 transition-colors font-medium"
                 >
                   {t('dashboard.logout')}
                 </button>
@@ -485,7 +470,7 @@ function Dashboard() {
           <p className="text-[#94A3B8] text-[20px] md:text-[24px] font-medium mt-2">
             {t('dashboard.title')}
           </p>
-          <div className="w-[400px] h-px bg-slate-700 mt-8"></div>
+          <div className="w-[400px] h-px bg-slate-700 dark:bg-slate-800 mt-8"></div>
         </div>
 
         <div className="max-w-[800px] mx-auto px-6 flex flex-col items-center mt-6">
@@ -493,7 +478,7 @@ function Dashboard() {
             className={`w-full border-2 border-dashed rounded-[24px] py-16 flex flex-col justify-center items-center cursor-pointer transition-all backdrop-blur-sm shadow-2xl ${
               isDragging 
                 ? 'border-[#3B82F6] bg-[#3B82F6]/10' 
-                : 'border-slate-600 bg-slate-800/50 hover:border-[#3B82F6] hover:bg-slate-800/80'
+                : 'border-slate-600 dark:border-slate-700 bg-slate-800/50 dark:bg-slate-900/50 hover:border-[#3B82F6] hover:bg-slate-800/80 dark:hover:bg-slate-800/80'
             }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -520,7 +505,7 @@ function Dashboard() {
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center max-w-md">
                   {files.slice(0, 3).map((f, i) => (
-                    <span key={i} className="text-white text-[14px] bg-slate-700 px-3 py-1.5 rounded-md truncate max-w-[150px]">
+                    <span key={i} className="text-white text-[14px] bg-slate-700 dark:bg-slate-800 px-3 py-1.5 rounded-md truncate max-w-[150px]">
                       {f.name}
                     </span>
                   ))}
@@ -554,7 +539,7 @@ function Dashboard() {
           
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-4 flex-wrap">
-              <h2 className="text-[#0F172A] text-[34px] md:text-[38px] font-extrabold tracking-tight">
+              <h2 className="text-[#0F172A] dark:text-white text-[34px] md:text-[38px] font-extrabold tracking-tight transition-colors duration-300">
                 {t('dashboard.history_title')}
               </h2>
               <span className="bg-[#6D28D9] text-white text-[16px] font-bold px-4 py-1.5 rounded-full shadow-sm">
@@ -574,7 +559,7 @@ function Dashboard() {
                 placeholder={t('dashboard.search_placeholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-white text-[#475569] text-[15px] font-medium border border-transparent pl-12 pr-4 py-3.5 rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] shadow-sm placeholder:text-gray-400 [&::-webkit-calendar-picker-indicator]:!hidden [&::-webkit-list-button]:!hidden"
+                className="w-full bg-white dark:bg-[#1E293B] text-[#475569] dark:text-white text-[15px] font-medium border border-transparent dark:border-slate-700 pl-12 pr-4 py-3.5 rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] shadow-sm placeholder:text-gray-400 [&::-webkit-calendar-picker-indicator]:!hidden [&::-webkit-list-button]:!hidden transition-colors duration-300"
               />
               <datalist id="tags-options">
                 {uniqueTags.map((tag, idx) => (
@@ -588,7 +573,7 @@ function Dashboard() {
             <div className="relative">
               <button 
                 onClick={() => setExportDropdownOpen(!exportDropdownOpen)} 
-                className="bg-[#0F172A] text-white border border-slate-700 px-5 py-2.5 rounded-[10px] font-bold text-[14px] hover:bg-slate-800 transition-all shadow-sm flex items-center gap-2"
+                className="bg-[#0F172A] dark:bg-slate-800 text-white border border-slate-700 dark:border-slate-600 px-5 py-2.5 rounded-[10px] font-bold text-[14px] hover:bg-slate-800 dark:hover:bg-slate-700 transition-all shadow-sm flex items-center gap-2"
               >
                 <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 {t('dashboard.export')}
@@ -596,24 +581,24 @@ function Dashboard() {
               </button>
               
               {exportDropdownOpen && (
-                <div className="absolute left-0 mt-2 w-48 bg-white rounded-[12px] shadow-xl border border-slate-100 py-2 z-50 overflow-hidden">
+                <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-[#1E293B] rounded-[12px] shadow-xl border border-slate-100 dark:border-slate-700 py-2 z-50 overflow-hidden transition-colors duration-300">
                   <button 
                     onClick={() => { exportToCSV(); setExportDropdownOpen(false); }} 
-                    className="w-full text-left px-4 py-2.5 text-sm text-[#0F172A] font-semibold hover:bg-slate-50 transition-colors flex items-center gap-3"
+                    className="w-full text-left px-4 py-2.5 text-sm text-[#0F172A] dark:text-white font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-3"
                   >
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                     {t('dashboard.export_csv')}
                   </button>
                   <button 
                     onClick={() => { exportToJSON(); setExportDropdownOpen(false); }} 
-                    className="w-full text-left px-4 py-2.5 text-sm text-[#0F172A] font-semibold hover:bg-slate-50 transition-colors flex items-center gap-3"
+                    className="w-full text-left px-4 py-2.5 text-sm text-[#0F172A] dark:text-white font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-3"
                   >
                     <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
                     {t('dashboard.export_json')}
                   </button>
                   <button 
                     onClick={() => { exportToExcel(); setExportDropdownOpen(false); }} 
-                    className="w-full text-left px-4 py-2.5 text-sm text-[#0F172A] font-semibold hover:bg-slate-50 transition-colors flex items-center gap-3"
+                    className="w-full text-left px-4 py-2.5 text-sm text-[#0F172A] dark:text-white font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-3"
                   >
                     <span className="w-2.5 h-2.5 rounded-full bg-green-600"></span>
                     {t('dashboard.export_excel')}
@@ -624,7 +609,7 @@ function Dashboard() {
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-[10px] font-bold text-[14px] border transition-colors shadow-sm whitespace-nowrap ${showFilters ? 'bg-[#3B82F6] text-white border-[#3B82F6]' : 'bg-white text-[#475569] border-transparent hover:border-slate-300'}`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-[10px] font-bold text-[14px] border transition-colors shadow-sm whitespace-nowrap ${showFilters ? 'bg-[#3B82F6] text-white border-[#3B82F6]' : 'bg-white dark:bg-[#1E293B] text-[#475569] dark:text-white border-transparent dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-500'}`}
             >
               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
               {t('dashboard.filters')}
@@ -632,11 +617,11 @@ function Dashboard() {
           </div>
 
           {showFilters && (
-            <div className="bg-white p-5 rounded-[12px] shadow-sm border border-slate-100 flex flex-wrap gap-4 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-white dark:bg-[#1E293B] p-5 rounded-[12px] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-wrap gap-4 animate-in fade-in slide-in-from-top-2 transition-colors duration-300">
               <select
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="bg-slate-50 text-[#475569] text-[14px] font-semibold border border-slate-200 px-4 py-3 rounded-[8px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] appearance-none cursor-pointer min-w-[160px]"
+                className="bg-slate-50 dark:bg-slate-800 text-[#475569] dark:text-slate-200 text-[14px] font-semibold border border-slate-200 dark:border-slate-600 px-4 py-3 rounded-[8px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] appearance-none cursor-pointer min-w-[160px]"
               >
                 <option value="all">{t('dashboard.filter_date_all')}</option>
                 <option value="today">{t('dashboard.filter_date_today')}</option>
@@ -647,7 +632,7 @@ function Dashboard() {
               <select
                 value={confidenceFilter}
                 onChange={(e) => setConfidenceFilter(Number(e.target.value))}
-                className="bg-slate-50 text-[#475569] text-[14px] font-semibold border border-slate-200 px-4 py-3 rounded-[8px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] appearance-none cursor-pointer min-w-[180px]"
+                className="bg-slate-50 dark:bg-slate-800 text-[#475569] dark:text-slate-200 text-[14px] font-semibold border border-slate-200 dark:border-slate-600 px-4 py-3 rounded-[8px] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] appearance-none cursor-pointer min-w-[180px]"
               >
                 <option value={0}>{t('dashboard.filter_conf_all')}</option>
                 <option value={95}>{t('dashboard.filter_conf_95')}</option>
@@ -658,20 +643,20 @@ function Dashboard() {
 
           {(dateFilter !== 'all' || confidenceFilter !== 0) && (
             <div className="flex items-center gap-2 flex-wrap mt-1">
-              <span className="text-[13px] font-bold text-[#64748B] mr-1">{t('dashboard.active_filters')}</span>
+              <span className="text-[13px] font-bold text-[#64748B] dark:text-slate-400 mr-1">{t('dashboard.active_filters')}</span>
               {dateFilter !== 'all' && (
-                <span onClick={() => setDateFilter('all')} className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full text-[13px] font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-blue-100 transition-colors">
+                <span onClick={() => setDateFilter('all')} className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-3 py-1.5 rounded-full text-[13px] font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
                   {t(`dashboard.filter_date_${dateFilter}`)}
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </span>
               )}
               {confidenceFilter !== 0 && (
-                <span onClick={() => setConfidenceFilter(0)} className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full text-[13px] font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-blue-100 transition-colors">
+                <span onClick={() => setConfidenceFilter(0)} className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-3 py-1.5 rounded-full text-[13px] font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
                   {t(`dashboard.filter_conf_${confidenceFilter}`)}
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </span>
               )}
-              <button onClick={() => { setDateFilter('all'); setConfidenceFilter(0); }} className="text-[12px] font-bold text-[#94A3B8] hover:text-[#0F172A] ml-2 underline transition-colors">
+              <button onClick={() => { setDateFilter('all'); setConfidenceFilter(0); }} className="text-[12px] font-bold text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-white ml-2 underline transition-colors">
                 {t('dashboard.clear_filters')}
               </button>
             </div>
@@ -684,10 +669,10 @@ function Dashboard() {
               key={item.id} 
               id={`report-card-${item.id}`}
               ref={filteredHistory.length === index + 1 ? lastImageElementRef : null}
-              className="bg-white rounded-[16px] shadow-sm overflow-hidden flex flex-col border border-gray-100 transition-transform hover:-translate-y-2 hover:shadow-xl relative"
+              className="bg-white dark:bg-[#1E293B] rounded-[16px] shadow-sm overflow-hidden flex flex-col border border-gray-100 dark:border-slate-700 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl relative"
             >
               
-              <div className="w-full h-[280px] bg-gray-100 overflow-hidden relative">
+              <div className="w-full h-[280px] bg-gray-100 dark:bg-slate-800 overflow-hidden relative">
                 <img
                   src={`https://${BUCKET_NAME}.s3.eu-south-2.amazonaws.com/originals/${item.nombreImagen}`}
                   alt={item.nombreImagen}
@@ -699,14 +684,14 @@ function Dashboard() {
               
               <div className="p-6 flex-1 flex flex-col">
                 <div className="mb-5">
-                  <p className="text-[12px] font-bold text-[#64748B] uppercase tracking-wider mb-1">{t('dashboard.filename')}</p>
-                  <h3 className="text-[#0F172A] text-[16px] font-bold truncate" title={item.nombreImagen}>
+                  <p className="text-[12px] font-bold text-[#64748B] dark:text-slate-400 uppercase tracking-wider mb-1">{t('dashboard.filename')}</p>
+                  <h3 className="text-[#0F172A] dark:text-white text-[16px] font-bold truncate" title={item.nombreImagen}>
                     {item.nombreImagen}
                   </h3>
                 </div>
                 
                 <div className="flex flex-col flex-1">
-                  <p className="text-[12px] font-bold text-[#64748B] uppercase tracking-wider mb-3">{t('dashboard.tags')}</p>
+                  <p className="text-[12px] font-bold text-[#64748B] dark:text-slate-400 uppercase tracking-wider mb-3">{t('dashboard.tags')}</p>
                   <div className="flex flex-col gap-3">
                     {item.etiquetas?.slice(0, 5).map((label, i) => {
                       const currentLang = i18n.language || 'es';
@@ -714,11 +699,11 @@ function Dashboard() {
 
                       return (
                         <div key={i} className="flex flex-col gap-1.5">
-                          <div className="flex justify-between items-center text-[13px] font-bold text-[#0F172A]">
+                          <div className="flex justify-between items-center text-[13px] font-bold text-[#0F172A] dark:text-slate-200">
                             <span className="capitalize">{displayName}</span>
-                            <span className="text-gray-500">{label.confianza.toFixed(1)}%</span>
+                            <span className="text-gray-500 dark:text-slate-400">{label.confianza.toFixed(1)}%</span>
                           </div>
-                          <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                          <div className="w-full bg-gray-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full"
                               style={{
@@ -734,20 +719,19 @@ function Dashboard() {
                 </div>
 
                 {item.textoDetectado && item.textoDetectado.length > 0 && (
-                  <div className="mt-5 pt-4 border-t border-gray-100">
-                    <p className="text-[12px] font-bold text-[#64748B] uppercase tracking-wider mb-2">{t('dashboard.detected_text')}</p>
+                  <div className="mt-5 pt-4 border-t border-gray-100 dark:border-slate-700">
+                    <p className="text-[12px] font-bold text-[#64748B] dark:text-slate-400 uppercase tracking-wider mb-2">{t('dashboard.detected_text')}</p>
                     <div className="flex flex-wrap gap-2">
                        {item.textoDetectado.slice(0, 3).map((txt, idx) => (
-                          <span key={idx} className="bg-blue-50 text-blue-700 border border-blue-100 text-[12px] px-2.5 py-1 rounded-md font-medium">"{txt}"</span>
+                          <span key={idx} className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-800 text-[12px] px-2.5 py-1 rounded-md font-medium">"{txt}"</span>
                        ))}
                     </div>
                   </div>
                 )}
 
-                {/* Botón de Generación de PDF */}
                 <button 
                   onClick={() => exportToPDF(item, `report-card-${item.id}`)}
-                  className="mt-6 w-full bg-slate-50 text-[#0F172A] border border-slate-200 text-[13px] font-bold py-2.5 rounded-[8px] hover:bg-slate-100 hover:border-slate-300 transition-colors flex items-center justify-center gap-2"
+                  className="mt-6 w-full bg-slate-50 dark:bg-slate-800 text-[#0F172A] dark:text-white border border-slate-200 dark:border-slate-600 text-[13px] font-bold py-2.5 rounded-[8px] hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
