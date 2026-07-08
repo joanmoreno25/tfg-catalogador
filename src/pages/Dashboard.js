@@ -302,12 +302,21 @@ function Dashboard() {
     setUploading(true);
     try {
       const uploadPromises = files.map(async (file) => {
-        const safeFileName = file.name.replace(/\s+/g, '_');
+        // 1. Validación estricta de MIME Type
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+          alert(`Archivo bloqueado: ${file.name} no es un formato seguro.`);
+          return; 
+        }
+
+        // 2. Prevención de colisiones con UUID
+        const uniqueId = crypto.randomUUID().split('-')[0];
+        const safeFileName = `${Date.now()}_${uniqueId}_${file.name.replace(/\s+/g, '_')}`;
         
-        // 1. Preparar y subir la imagen original
         const arrayBuffer = await file.arrayBuffer();
         const fileData = new Uint8Array(arrayBuffer);
        
+        // Subida segura con credenciales temporales
         await s3Client.send(new PutObjectCommand({
           Bucket: BUCKET_NAME,
           Key: `originals/${safeFileName}`,
@@ -315,7 +324,7 @@ function Dashboard() {
           ContentType: file.type
         }));
        
-        // 2. Generar, preparar y subir la miniatura optimizada
+        // Generación y subida de miniatura
         try {
           const thumbnailBlob = await createThumbnail(file);
           const thumbArrayBuffer = await thumbnailBlob.arrayBuffer();
@@ -328,17 +337,17 @@ function Dashboard() {
             ContentType: file.type
           }));
         } catch (thumbError) {
-          console.error("Error al generar o subir la miniatura:", thumbError);
+          console.error("Error al procesar miniatura:", thumbError);
         }
 
-        // 3. Analizar la imagen original con Rekognition
+        // Análisis en AWS Rekognition
         await analyzeImage(safeFileName, fileData);
       });
       
       await Promise.all(uploadPromises);
       setFiles([]); 
     } catch (error) {
-      console.error("Fallo general en el proceso de subida:", error);
+      console.error("Fallo general en la subida:", error);
     } finally {
       setUploading(false);
     }

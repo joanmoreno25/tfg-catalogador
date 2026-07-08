@@ -87,7 +87,18 @@ const Profile = () => {
       let newPhotoUrl = currentUser.photoURL;
 
       if (selectedPhoto) {
-        const safeFileName = `${currentUser.uid}_${Date.now()}_${selectedPhoto.name.replace(/\s+/g, '_')}`;
+        // 1. Validación estricta de seguridad (MIME Type)
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!validTypes.includes(selectedPhoto.type)) {
+          alert("Por favor, selecciona una imagen válida (JPG, PNG, WEBP).");
+          setIsLoading(false);
+          return; 
+        }
+
+        // 2. UUID ligado al usuario para evitar colisiones
+        const uniqueId = crypto.randomUUID().split('-')[0];
+        const safeFileName = `${currentUser.uid}_avatar_${uniqueId}_${selectedPhoto.name.replace(/\s+/g, '_')}`;
+        
         const arrayBuffer = await selectedPhoto.arrayBuffer();
         const fileData = new Uint8Array(arrayBuffer);
 
@@ -97,7 +108,7 @@ const Profile = () => {
           Body: fileData,
           ContentType: selectedPhoto.type
         }));
-        
+
         newPhotoUrl = `https://${BUCKET_NAME}.s3.eu-south-2.amazonaws.com/avatars/${safeFileName}`;
       }
 
