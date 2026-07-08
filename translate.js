@@ -24,6 +24,11 @@ async function processTranslations(sourceObj, targetObj, lang) {
   let isUpdated = false;
   
   for (const key in sourceObj) {
+    // PROTECCIÓN CONTRA PROTOTYPE POLLUTION
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      continue;
+    }
+
     // Si el valor es un objeto (anidación), entramos recursivamente
     if (typeof sourceObj[key] === 'object' && sourceObj[key] !== null) {
       if (!targetObj[key]) targetObj[key] = {};
