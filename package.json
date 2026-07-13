@@ -24,7 +24,7 @@
     "react-dom": "^19.2.5",
     "react-helmet-async": "^3.0.0",
     "react-i18next": "^17.0.8",
-    "react-router-dom": "^7.17.0",
+    "react-router-dom": "^6.30.4",
     "react-scripts": "5.0.1",
     "recharts": "^3.8.1",
     "tailwindcss": "^3.4.19",
@@ -40,8 +40,7 @@
   },
   "eslintConfig": {
     "extends": [
-      "react-app",
-      "react-app/jest"
+      "react-app"
     ]
   },
   "browserslist": {
