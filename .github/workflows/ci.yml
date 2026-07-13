@@ -1,36 +1,30 @@
-  name: Integración Continua (CI)
+name: Integración Continua (CI)
 
-# 1. ¿CUÁNDO SE EJECUTA ESTO?
 on:
   push:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
 
-# 2. ¿QUÉ TAREAS VA A REALIZAR?
 jobs:
   test:
     name: Build & Test
-    runs-on: ubuntu-latest # Levanta un servidor Linux en la nube
+    runs-on: ubuntu-latest
 
     steps:
-    # Paso A: Descargar tu código en el servidor
-    - name: Checkout del código
-      uses: actions/checkout@v4
+      - name: Checkout del código
+        uses: actions/checkout@v4
 
-    # Paso B: Instalar Node.js (usamos la v20 que vi en tus logs)
-    - name: Configurar Node.js 20
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-    # Paso C: Instalar las dependencias de tu package.json exacto
-    - name: Instalar dependencias
-      run: npm ci
+      - name: Instalar dependencias
+        run: npm ci
 
-    # Paso D: Ejecutar todos los tests unitarios
-    - name: Ejecutar Tests
-      run: npm test
-      env:
-        CI: true # IMPORTANTE: Evita que la terminal se quede "congelada" esperando comandos
+      - name: Ejecutar Tests
+        run: npm test
+        env:
+          CI: true
