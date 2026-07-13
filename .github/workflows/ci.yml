@@ -21,8 +21,9 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      # CORRECCIÓN: Añadimos --legacy-peer-deps para ignorar conflictos de versiones antiguas
       - name: Instalar dependencias
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Ejecutar Tests
         run: npm test
