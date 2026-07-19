@@ -10,6 +10,13 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
 } from 'recharts';
 
+/**
+ * Compare component.
+ * Provides an A/B testing interface allowing users to select two analyzed images
+ * from their catalog and visually compare their AI-generated metrics, tags, and confidence scores.
+ * 
+ * @returns {JSX.Element} The rendered comparison dashboard.
+ */
 const Compare = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -22,6 +29,9 @@ const Compare = () => {
   const [activeModal, setActiveModal] = useState(null);
 
   useEffect(() => {
+    /**
+     * Fetches the user's analyzed assets catalog from Firestore.
+     */
     const fetchCatalog = async () => {
       if (!currentUser) return;
       setLoading(true);
@@ -38,17 +48,31 @@ const Compare = () => {
     fetchCatalog();
   }, [currentUser]);
 
+  /**
+   * Assigns the selected catalog item to the currently active variant slot (A or B).
+   * 
+   * @param {Object} image - The selected image object.
+   */
   const handleSelectImage = (image) => {
     if (activeModal === 'A') setImageA(image);
     if (activeModal === 'B') setImageB(image);
     setActiveModal(null);
   };
 
+  /**
+   * Calculates the average confidence score across a set of AI-generated tags.
+   * 
+   * @param {Array} etiquetas - The array of tag objects.
+   * @returns {string|number} The computed average confidence formatted to 1 decimal.
+   */
   const getAvgConfidence = (etiquetas) => {
     if (!etiquetas || etiquetas.length === 0) return 0;
     return (etiquetas.reduce((acc, tag) => acc + (tag.confianza || 0), 0) / etiquetas.length).toFixed(1);
   };
 
+  /**
+   * Memoized computation of the comparative chart dataset based on selected images.
+   */
   const chartData = useMemo(() => {
     if (!imageA || !imageB) return [];
     const tagMap = {};
@@ -205,7 +229,7 @@ const Compare = () => {
 
       <div className="min-h-screen bg-[#EEF2F6] font-sans pb-20 print:bg-white print:pb-0 print:min-h-0">
         
-        {/* Cabecera oscura (Oculta al imprimir) */}
+        {/* Dark header (Hidden when printing) */}
         <div className="w-full bg-[#0F172A] py-6 shadow-lg print:hidden">
           <div className="max-w-[1400px] mx-auto px-6 flex justify-between items-center relative">
             <button onClick={() => navigate('/dashboard')} className="text-white hover:text-[#3B82F6] flex items-center gap-2 font-semibold transition-colors z-10">
@@ -219,7 +243,7 @@ const Compare = () => {
           </div>
         </div>
 
-        {/* Cabecera Profesional Exclusiva para PDF */}
+        {/* Professional Header Exclusive for PDF Export */}
         <div className="hidden print:block max-w-[1400px] mx-auto border-b-2 border-gray-200 pb-6 mb-8 pt-4">
           <div className="flex justify-between items-end">
             <div>
@@ -269,7 +293,7 @@ const Compare = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 print:grid-cols-1 print:gap-8">
                   
-                  {/* Gráfico 1: Barras */}
+                  {/* Chart 1: Bar Chart */}
                   <div className="lg:col-span-2 h-[400px] w-full border border-gray-100 rounded-xl p-4 bg-gray-50 print:bg-white print:border-gray-200">
                     <h4 className="text-center font-bold text-[#0F172A] mb-4 text-xs uppercase tracking-wider">{t('dashboard.top_tags_vs_confidence', 'Top Etiquetas vs Confianza')}</h4>
                     <ResponsiveContainer width="100%" height="90%">
@@ -285,21 +309,21 @@ const Compare = () => {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Tabla de Resumen en Columnas (Diseño Estricto) */}
+                  {/* Columnar Summary Table (Strict Layout) */}
                   <div className="lg:col-span-1 flex flex-col justify-between">
                      <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm print:shadow-none print:border-gray-300">
                         <h4 className="font-extrabold text-[#0F172A] mb-6 border-b pb-3 uppercase text-sm tracking-wider">{t('dashboard.global_metrics', 'Métricas Globales')}</h4>
                         
                         <div className="w-full flex flex-col">
                           
-                          {/* Cabeceras de columna */}
+                          {/* Column Headers */}
                           <div className="grid grid-cols-4 gap-3 mb-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider items-end">
                             <div className="col-span-2">{t('dashboard.metric', 'Métrica')}</div>
                             <div className="text-center text-[#3B82F6]">{t('dashboard.var_a', 'Var. A')}</div>
                             <div className="text-center text-[#8B5CF6]">{t('dashboard.var_b', 'Var. B')}</div>
                           </div>
 
-                          {/* Fila 1 */}
+                          {/* Row 1 */}
                           <div className="grid grid-cols-4 gap-3 items-center py-3 border-t border-gray-50">
                              <div className="col-span-2 text-xs font-semibold text-gray-600">{t('dashboard.global_confidence', 'Confianza Global')}</div>
                              <div className="text-center">
@@ -314,7 +338,7 @@ const Compare = () => {
                              </div>
                           </div>
 
-                          {/* Fila 2 */}
+                          {/* Row 2 */}
                           <div className="grid grid-cols-4 gap-3 items-center py-3 border-t border-gray-50">
                              <div className="col-span-2 text-xs font-semibold text-gray-600">{t('dashboard.extracted_tags', 'Etiquetas Extraídas')}</div>
                              <div className="text-center">
@@ -329,7 +353,7 @@ const Compare = () => {
                              </div>
                           </div>
 
-                          {/* Fila 3 */}
+                          {/* Row 3 */}
                           <div className="grid grid-cols-4 gap-3 items-center py-3 border-t border-gray-50">
                              <div className="col-span-2 text-xs font-semibold text-gray-600">{t('dashboard.text_lines', 'Líneas de Texto')}</div>
                              <div className="text-center">
@@ -344,7 +368,7 @@ const Compare = () => {
                              </div>
                           </div>
 
-                          {/* Fila 4 */}
+                          {/* Row 4 */}
                           <div className="grid grid-cols-4 gap-3 items-center py-3 border-t border-gray-50">
                              <div className="col-span-2 text-xs font-semibold text-gray-600">{t('dashboard.moderation', 'Moderación')}</div>
                              <div className="text-center">

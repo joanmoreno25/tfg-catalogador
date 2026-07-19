@@ -5,6 +5,12 @@ import Compare from './Compare';
 import { useAuth } from '../context/AuthContext';
 import { getDocs } from 'firebase/firestore';
 
+/**
+ * @fileoverview Test suite for the Compare component.
+ * Validates initial rendering (locked state), modal interaction and image selection logic, 
+ * as well as the execution of comparative math operations between selected assets.
+ */
+
 // 1. MOCK EXTERNAL DEPENDENCIES
 
 // Mock React Router

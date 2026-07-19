@@ -21,8 +21,6 @@ const Login = () => {
       await signInWithPopup(auth, provider);
       navigate('/dashboard'); 
     } catch (error) {
-      // ESTA LÍNEA ES CRÍTICA PARA EL DIAGNÓSTICO:
-      console.error("FIREBASE ERROR NATIVO:", error.code, error.message, error.customData);
       setErrorMsg("Error al iniciar sesión con Google.");
     }
   };

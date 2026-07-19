@@ -10,6 +10,13 @@ import { db } from '../firebase-config';
 import { useAuth } from '../context/AuthContext';
 import { Helmet } from 'react-helmet-async';
 
+/**
+ * Analytics component.
+ * Fetches and aggregates the user's image analysis history from Firestore
+ * to display quantitative metrics and interactive charts (Bar, Line, Pie).
+ *
+ * @returns {JSX.Element} The rendered Analytics dashboard component.
+ */
 function Analytics() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -19,6 +26,9 @@ function Analytics() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    /**
+     * Fetches all user history documents from Firestore ordered by creation date.
+     */
     const fetchAllHistory = async () => {
       if (!currentUser) return;
       try {
@@ -40,6 +50,7 @@ function Analytics() {
     fetchAllHistory();
   }, [currentUser]);
 
+  // Metric accumulators
   let totalConfidence = 0;
   let labelCount = 0;
   let totalTexts = 0;
@@ -50,6 +61,7 @@ function Analytics() {
   let medConf = 0;
   let lowConf = 0;
 
+  // Process historical data to populate chart datasets
   history.forEach(item => {
     if (item.textoDetectado) {
       totalTexts += item.textoDetectado.length;
@@ -79,15 +91,18 @@ function Analytics() {
 
   const avgConfidence = labelCount > 0 ? (totalConfidence / labelCount).toFixed(1) : 0;
 
+  // Format data for the Top Tags Bar Chart
   const barChartData = Object.entries(tagFrequencies)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
+  // Format data for the Chronological Line Chart
   const lineChartData = Object.entries(dateMap)
     .map(([date, count]) => ({ date, count }))
     .reverse(); 
 
+  // Format data for the Confidence Distribution Pie Chart
   const pieChartData = [
     { name: t('dashboard.high_conf'), value: highConf, color: '#10B981' },
     { name: t('dashboard.med_conf'), value: medConf, color: '#F59E0B' },

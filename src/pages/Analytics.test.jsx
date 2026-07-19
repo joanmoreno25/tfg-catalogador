@@ -4,6 +4,11 @@ import Analytics from './Analytics';
 import { useAuth } from '../context/AuthContext';
 import { getDocs } from 'firebase/firestore';
 
+/**
+ * @fileoverview Test suite for the Analytics component.
+ * Validates initial loading states, data fetching, metric calculations, and chart rendering.
+ */
+
 // 1. MOCK EXTERNAL DEPENDENCIES
 
 // Mock React Router to prevent navigation errors

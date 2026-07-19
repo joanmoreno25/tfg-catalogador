@@ -2,6 +2,13 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from '../assets/logo.svg';
 
+/**
+ * Navbar component.
+ * Renders the top navigation bar containing the brand logo, anchor links 
+ * to main sections, and authentication call-to-action buttons.
+ *
+ * @returns {JSX.Element} The rendered navigation bar component.
+ */
 const Navbar = () => {
   const navLinks = [
     { name: 'Funcionalidades', href: '#funcionalidades' },
@@ -12,7 +19,7 @@ const Navbar = () => {
   return (
     <nav className="w-full h-[92px] bg-transparent flex items-center justify-between px-[5%] lg:px-[8%]">
       
-      {/* IZQUIERDA: Logo y Nombre con enlace al inicio */}
+      {/* Left Section: Brand Logo and Name */}
       <a href="#inicio" className="flex items-center gap-4 cursor-pointer hover:opacity-90 transition-opacity">
         <img src={logo} alt="AdVision Logo" className="w-10 h-10 drop-shadow-md" />
         <span className="text-white text-[26px] font-bold tracking-tight drop-shadow-md">
@@ -20,7 +27,7 @@ const Navbar = () => {
         </span>
       </a>
 
-      {/* CENTRO: Menú de Navegación funcional (Aumentado tamaño a 18px y añadida sombra) */}
+      {/* Center Section: Primary Navigation Menu */}
       <div className="hidden lg:flex items-center gap-[180px]">
         {navLinks.map((item) => (
           <a 
@@ -33,7 +40,7 @@ const Navbar = () => {
         ))}
       </div>
 
-      {/* DERECHA: Botones de Acción */}
+      {/* Right Section: Authentication and Call-to-Action Buttons */}
       <div className="flex items-center gap-[16px]">
         <Link 
           to="/login" 
